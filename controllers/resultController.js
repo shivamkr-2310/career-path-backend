@@ -110,10 +110,19 @@ const generateRuleBasedResult = async (req, res) => {
 
     // Save to DB
     if (userId) {
-      const userResult = await pool.query('SELECT results FROM users WHERE id = $1', [userId]);
+      let userResult = await pool.query('SELECT results FROM users WHERE clerk_id = $1', [userId]);
+      if (userResult.rows.length === 0) {
+        userResult = await pool.query('SELECT results FROM users WHERE id = $1', [userId]);
+      }
       const results = userResult.rows[0]?.results || [];
       results.push({ ...finalResult, date: new Date(), scores });
-      await pool.query('UPDATE users SET results = $1 WHERE id = $2', [JSON.stringify(results), userId]);
+      
+      // Update using clerk_id if available, otherwise use numeric id
+      if (userResult.rows[0]?.clerk_id) {
+        await pool.query('UPDATE users SET results = $1 WHERE clerk_id = $2', [JSON.stringify(results), userId]);
+      } else {
+        await pool.query('UPDATE users SET results = $1 WHERE id = $2', [JSON.stringify(results), userId]);
+      }
     }
 
     return res.json(finalResult);
@@ -148,10 +157,19 @@ const generateRuleBasedResult = async (req, res) => {
       };
 
       if (userId) {
-        const userResult = await pool.query('SELECT results FROM users WHERE id = $1', [userId]);
+        let userResult = await pool.query('SELECT results FROM users WHERE clerk_id = $1', [userId]);
+        if (userResult.rows.length === 0) {
+          userResult = await pool.query('SELECT results FROM users WHERE id = $1', [userId]);
+        }
         const results = userResult.rows[0]?.results || [];
         results.push({ ...fallbackResult, date: new Date(), scores });
-        await pool.query('UPDATE users SET results = $1 WHERE id = $2', [JSON.stringify(results), userId]);
+        
+        // Update using clerk_id if available, otherwise use numeric id
+        if (userResult.rows[0]?.clerk_id) {
+          await pool.query('UPDATE users SET results = $1 WHERE clerk_id = $2', [JSON.stringify(results), userId]);
+        } else {
+          await pool.query('UPDATE users SET results = $1 WHERE id = $2', [JSON.stringify(results), userId]);
+        }
       }
 
       res.json(fallbackResult);
@@ -180,7 +198,11 @@ const saveResult = async (req, res) => {
 const getResults = async (req, res) => {
   const { userId } = req.params;
   try {
-    const result = await pool.query('SELECT results FROM users WHERE id = $1', [userId]);
+    // Try to find by clerk_id first, then by numeric id
+    let result = await pool.query('SELECT results FROM users WHERE clerk_id = $1', [userId]);
+    if (result.rows.length === 0) {
+      result = await pool.query('SELECT results FROM users WHERE id = $1', [userId]);
+    }
     if (result.rows.length > 0) {
       res.json(result.rows[0].results);
     } else {

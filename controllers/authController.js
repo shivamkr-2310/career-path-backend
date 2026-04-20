@@ -7,7 +7,7 @@ const generateToken = (id) => {
 };
 
 const registerUser = async (req, res) => {
-  const { name, email, password, level, stream, course, branch, semester } = req.body;
+  const { name, email, password, level, stream, course, branch, semester, clerkId } = req.body;
 
   try {
     const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -20,8 +20,8 @@ const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const newUser = await pool.query(
-      'INSERT INTO users (name, email, password, level, stream, course, branch, semester) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [name, email, hashedPassword, level || '', stream || '', course || '', branch || '', semester || '']
+      'INSERT INTO users (clerk_id, name, email, password, level, stream, course, branch, semester) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [clerkId || null, name, email, hashedPassword, level || '', stream || '', course || '', branch || '', semester || '']
     );
 
     const user = newUser.rows[0];
@@ -52,6 +52,7 @@ const loginUser = async (req, res) => {
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
         _id: user.id,
+        clerkId: user.clerk_id,
         name: user.name,
         email: user.email,
         level: user.level,

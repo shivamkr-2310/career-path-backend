@@ -118,4 +118,78 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, updateProfile };
+// Sync or create Clerk user in database
+const syncClerkUser = async (req, res) => {
+  const { clerkId, name, email } = req.body;
+
+  // Input validation
+  if (!clerkId || !email) {
+    return res.status(400).json({ message: 'Clerk ID and email are required' });
+  }
+
+  try {
+    // Check if user already exists by clerk_id
+    let user = await pool.query('SELECT * FROM users WHERE clerk_id = $1', [clerkId]);
+    
+    if (user.rows.length > 0) {
+      // User exists, return their data
+      const userData = user.rows[0];
+      return res.json({
+        _id: userData.id,
+        clerkId: userData.clerk_id,
+        name: userData.name,
+        email: userData.email,
+        level: userData.level,
+        stream: userData.stream,
+        course: userData.course,
+        branch: userData.branch,
+        semester: userData.semester,
+      });
+    }
+
+    // Check if user exists by email
+    user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    
+    if (user.rows.length > 0) {
+      // User exists, update clerk_id
+      const userData = user.rows[0];
+      await pool.query('UPDATE users SET clerk_id = $1 WHERE id = $2', [clerkId, userData.id]);
+      
+      return res.json({
+        _id: userData.id,
+        clerkId: clerkId,
+        name: userData.name,
+        email: userData.email,
+        level: userData.level,
+        stream: userData.stream,
+        course: userData.course,
+        branch: userData.branch,
+        semester: userData.semester,
+      });
+    }
+
+    // Create new user if they don't exist
+    const newUser = await pool.query(
+      'INSERT INTO users (clerk_id, name, email, password, level, stream, course, branch, semester) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [clerkId, name || '', email, '', '', '', '', '', '']
+    );
+
+    const userData = newUser.rows[0];
+    res.status(201).json({
+      _id: userData.id,
+      clerkId: userData.clerk_id,
+      name: userData.name,
+      email: userData.email,
+      level: userData.level,
+      stream: userData.stream,
+      course: userData.course,
+      branch: userData.branch,
+      semester: userData.semester,
+    });
+  } catch (error) {
+    console.error('Sync Clerk user error:', error);
+    res.status(500).json({ message: 'Failed to sync user. Please try again.' });
+  }
+};
+
+module.exports = { registerUser, loginUser, updateProfile, syncClerkUser };

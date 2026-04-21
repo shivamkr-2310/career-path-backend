@@ -4,8 +4,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const getGeminiResponse = async (prompt) => {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    console.log("Using model: gemini-2.5-flash-lite");
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    console.log("Using model: gemini-2.5-flash");
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
